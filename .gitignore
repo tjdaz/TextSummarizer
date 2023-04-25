@@ -5,7 +5,15 @@
 venv/
 __pycache__
 
-# Keep data directories but remove contents.
-data/database/*
-data/models/*
-data/raw/*
+# Ignore all files in the data/ directory
+data/*
+
+# Except for the data directories themselves
+!data/raw/
+!data/models/
+!data/databases/
+
+# Ignore files with specific extensions within the data directories
+data/raw/*.story
+data/models/*.pth
+data/databases/*.db

@@ -3,7 +3,7 @@ from preprocessor import *
 
 MIN_DOCUMENTS = 90000
 
-# Constants for the data paths.
+# Constants for the raw data paths.
 TRAIN_DATA_PATH = 'data/raw/train'
 TEST_DATA_PATH = 'data/raw/test'
 VAL_DATA_PATH = 'data/raw/val'

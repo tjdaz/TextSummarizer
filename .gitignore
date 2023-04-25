@@ -3,6 +3,7 @@
 .settings/
 .vscode/
 venv/
+__pycache__
 
 # Keep data directories but remove contents.
 data/database/*

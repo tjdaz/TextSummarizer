@@ -1,0 +1,13 @@
+.classpath
+.DS_Store
+.idea/
+.settings/
+.vscode/
+data/database/*
+data/models/*
+data/raw/*
+!data/database
+!data/models
+!data/raw
+target/
+venv/

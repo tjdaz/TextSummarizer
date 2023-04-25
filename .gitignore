@@ -3,9 +3,11 @@
 .idea/
 .settings/
 .vscode/
-data/
-!data/database/
-!data/models/
-!data/raw/
+data/database/*
+data/models/*
+data/raw/*
+!data/database
+!data/models
+!data/raw
 target/
 venv/

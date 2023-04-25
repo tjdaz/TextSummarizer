@@ -1,13 +1,14 @@
-.classpath
 .DS_Store
 .idea/
 .settings/
 .vscode/
+venv/
+
+# Keep data directories but remove contents.
+data/*
+!data/database/
+!data/models/
+!data/raw/
 data/database/*
 data/models/*
 data/raw/*
-!data/database
-!data/models
-!data/raw
-target/
-venv/

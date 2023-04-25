@@ -35,3 +35,15 @@ Store the database in the data path:
 ```bash
 data/database
 ```
+
+The data directory structure should look like this:
+```bash
+TextSummarizer/
+|-- data/
+    |-- database/
+|-- models/
+|-- raw/
+    |-- test/
+    |-- train/
+    |-- val/
+```

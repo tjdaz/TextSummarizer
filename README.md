@@ -37,13 +37,13 @@ data/database
 ```
 
 The data directory structure should look like this:
-```bash
+```
 TextSummarizer/
-|-- data/
-    |-- database/
-|-- models/
-|-- raw/
-    |-- test/
-    |-- train/
-    |-- val/
+— data/
+  — database/
+— models/
+— raw/
+  — test/
+  — train/
+  — val/
 ```

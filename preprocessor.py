@@ -107,7 +107,6 @@ class Preprocessor:
                 else:
                     doc_text_vector = doc_text_vector.cpu().numpy()
                     doc_summary_vector = doc_summary_vector.cpu().numpy()
-
             # Add the document to the database.
             sql_data = (doc_id, doc_text, doc_summary, doc_text_vector.tobytes(), doc_summary_vector.tobytes())
             cursor.execute(sql_insert, sql_data)
@@ -140,21 +139,18 @@ class Preprocessor:
         """Tokenizes and return the text using the BertTokenizer."""
         return self.tokenizer.encode(text, add_special_tokens=True, truncation=True, max_length=max_tokens)
 
-    def get_vector(self, tokens):
+    def get_vector(self, text):
         """Creates and returns a vector for the given tokens."""
-        with torch.no_grad():
-            tensor = torch.tensor(tokens).unsqueeze(0)
+        # Get tokens for the doc text and summary, adds CLS, SEP tags.
+        tokens = self.tokenizer.encode(text, add_special_tokens=True, truncation=True,
+                                                max_length=Preprocessor.MAX_TEXT_TOKENS)
 
-            if self.use_cuda:
-                # Move tensor to the GPU if CUDA can be used.
-                tensor = tensor.cuda()  # move tensor to GPU
+        # Create and store vectors for the doc text and summary.
+        with torch.no_grad():
+            text_tensor = torch.tensor(tokens).unsqueeze(0)
 
             # Get vector using the model.
-            vector = self.model(tensor)[1]
+            text_vector = self.model(doc_text_tensor)[1]
 
-            if self.use_cuda:
-                # Move the vector back to the CPU if CUDA was used.
-                vector = vector.cpu().numpy()
-            else:
-                vector = vector.numpy()
-            return vector
+            text_vector = doc_text_vector.cpu().numpy()
+            return text_vector

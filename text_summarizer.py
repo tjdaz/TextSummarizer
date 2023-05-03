@@ -10,7 +10,7 @@ VAL_DATA_PATH = 'data/raw/val'
 
 
 def main():
-    database = Database('documents')
+    database = Database('documents_2k')
     preprocessor = Preprocessor(database.path)
     if database.get_size() < MIN_DOCUMENTS:
         preprocessor.process_dataset(TRAIN_DATA_PATH)

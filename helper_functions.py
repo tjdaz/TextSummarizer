@@ -32,8 +32,6 @@ def get_random_doc(path='data/database/documents.db'):
 
 def get_doc_by_id(doc_id, path='data/database/documents.db'):
     """Gets the number of documents stored in the database."""
-    # Get a random id.
-
     # Establish a connection to the database and create a cursor.
     connection = sqlite3.connect(path)
     cursor = connection.cursor()

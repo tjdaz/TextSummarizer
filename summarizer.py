@@ -1,37 +1,55 @@
-import numpy as np
-import tensorflow as tf
-import helper_functions as hf
-from keras.utils import pad_sequences
+import sys
 import pickle
+import numpy as np
+from database import *
+import tensorflow as tf
+from keras.utils import pad_sequences
+from build import MAX_ARTICLE_LENGTH, MAX_SUMMARY_LENGTH, DATABASE_NAME
 
-# Load the saved model
-model = tf.keras.models.load_model('data/models/glove_new_model_01.h5')
 
-# Load the tokenizer and max sequence lengths from disk
-with open('data/models/glove_new_model_tokenizer_01.pkl', 'rb') as f:
-    tokenizer = pickle.load(f)
+def generate_summary(article):
+    # Filter tensorflow warnings.
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
-# Set max lengths.
-max_article_length = 1516
-max_summary_length = 70
+    # Load the saved model
+    model = tf.keras.models.load_model('data/models/model.h5')
 
-# Load the article from the input file
-doc = hf.get_doc_by_id(3000)
-article_text = doc[2]
-summary_text = doc[3]
+    # Load the tokenizer and max sequence lengths from disk
+    with open('data/models/tokenizer.pkl', 'rb') as f:
+        tokenizer = pickle.load(f)
 
-# Tokenize the article and add start/end tokens
-article_seq = tokenizer.texts_to_sequences(['<start> ' + article_text + ' <end>'])
+    # Tokenize the article and pad it to max length.
+    article_tokens = tokenizer.texts_to_sequences([article])
+    article_input = pad_sequences(article_tokens, maxlen=MAX_ARTICLE_LENGTH)
 
-# Pad the sequence to the max length
-article_input = pad_sequences(article_seq, maxlen=max_article_length)
+    # Generate the summary, convert encoding to int indexes, and then to English text.
+    predicted_summary = model.predict([article_input, np.zeros((1, MAX_SUMMARY_LENGTH))], verbose=0)[0]
+    predicted_summary = np.argmax(predicted_summary, axis=1)
+    predicted_summary = ' '.join(tokenizer.index_word[i] for i in predicted_summary if i > 0)
 
-# Generate the summary
-predicted_summary = model.predict([article_input, np.zeros((1, max_summary_length))])[0]
-predicted_summary = np.argmax(predicted_summary, axis=1)  # convert one-hot encoding to integer indices
-predicted_summary = ' '.join(tokenizer.index_word[i] for i in predicted_summary if i > 0)  # filter out padding and OOV tokens
-predicted_summary = predicted_summary.replace('<start> ', '').replace(' <end>', '')
+    return predicted_summary
 
-# Print the summary
-print('Actual:\n' + summary_text)
-print('\nPredicted:\n' + predicted_summary)
+
+def generate_summary_by_id(doc_id):
+    database = Database(DATABASE_NAME)
+    article = database.get_doc_by_id(doc_id)[0]
+    summary = generate_summary(article)
+    return summary
+
+
+def main():
+    # Accepts 1 argument: the path to the file. Run from terminal using 'python summarizer.py example_file_path.txt'
+    article_path = sys.argv[0]
+
+    # Read the file contents.
+    with open(article_path, 'r') as file:
+        article_text = file.read()
+
+    # Generate and print the summary.
+    summary = generate_summary(article_text)
+    print('Generated summary:')
+    print(summary)
+
+
+if __name__ == '__main__':
+    main()

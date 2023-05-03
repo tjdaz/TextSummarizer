@@ -1,120 +1,185 @@
-import os
-import sqlite3
-import numpy as np
-import tensorflow as tf
-from keras.preprocessing.text import Tokenizer
-from keras.utils import pad_sequences
 import pickle
+import numpy as np
+from database import *
+import tensorflow as tf
+from keras.utils import pad_sequences
+from keras.preprocessing.text import Tokenizer
+from build import MAX_ARTICLE_LENGTH, MAX_SUMMARY_LENGTH, DATABASE_NAME
 
-# Load the data from SQLite3 database
-print('loading data...')
-conn = sqlite3.connect('data/database/documents.db')
-cur = conn.cursor()
-cur.execute("SELECT doc_text, doc_summary FROM documents LIMIT 50")
-articles, summaries = zip(*cur.fetchall())
-conn.close()
-print('loading data complete')
+# Constants for the neural network model.
+EMBEDDING_DIM = 300
+BATCH_SIZE = 32
+TEST_INDEX = 0
+NUM_DOCS = 32
+EPOCHS = 10
 
-# Tokenize the text data and add <start> and <end> tokens
-print('tokenizing text...')
+# Instantiate the tokenizer.
 tokenizer = Tokenizer(filters='', oov_token='<OOV>', lower=True)
-tokenizer.fit_on_texts(['<start> ' + article + ' <end>' for article in articles] + ['<start> ' + summary + ' <end>' for summary in summaries])
-article_sequences = tokenizer.texts_to_sequences(['<start> ' + article + ' <end>' for article in articles])
-summary_sequences = tokenizer.texts_to_sequences(['<start> ' + summary + ' <end>' for summary in summaries])
-print('tokenizing text complete')
-
-# Pad the sequences to a fixed length
-print('padding sequences...')
-max_article_length = max(len(seq) for seq in article_sequences)
-max_summary_length = max(len(seq) for seq in summary_sequences)
-article_input = pad_sequences(article_sequences, maxlen=max_article_length)
-summary_input = pad_sequences(summary_sequences, maxlen=max_summary_length)
-print('padding sequences complete')
-
-# Load pre-trained GloVe embeddings
-embedding_dim = 300
-embedding_file = 'data/glove/glove.6B.300d.txt'
-embedding_index_file = 'data/glove/glove.6B.300d.txt.pkl'
-
-print('creating embedding index file...')
-if os.path.isfile(embedding_index_file):
-    with open(embedding_index_file, 'rb') as f:
-        embedding_index = pickle.load(f)
-else:
-    embedding_index = {}
-    with open(embedding_file, encoding='utf8') as f:
-        for line in f:
-            values = line.split()
-            word = values[0]
-            coefs = np.asarray(values[1:], dtype='float32')
-            embedding_index[word] = coefs
-    with open(embedding_index_file, 'wb') as f:
-        pickle.dump(embedding_index, f)
-print('embedding index file created')
 
 
-# Create embedding matrix
-print('creating embedding matrix...')
-word_index = tokenizer.word_index
-num_words = min(len(word_index) + 1, len(embedding_index))
-embedding_matrix = np.zeros((num_words, embedding_dim))
-for word, i in word_index.items():
-    if i >= num_words:
-        continue
-    embedding_vector = embedding_index.get(word)
-    if embedding_vector is not None:
-        embedding_matrix[i] = embedding_vector
-print('embedding matrix created')
+def load_data():
+    # Load CNN articles from database.
+    print('Loading training data...')
+    database = Database(DATABASE_NAME)
+    articles, summaries = zip(*database.get_data(NUM_DOCS))
 
-# Build the model
-print('building model...')
-article_input_layer = tf.keras.layers.Input(shape=(max_article_length,))
-summary_input_layer = tf.keras.layers.Input(shape=(max_summary_length,))
-embedding_layer = tf.keras.layers.Embedding(num_words, embedding_dim, weights=[embedding_matrix], trainable=True)
-article_embedding = embedding_layer(article_input_layer)
-summary_embedding = embedding_layer(summary_input_layer)
-article_lstm_layer = tf.keras.layers.LSTM(100)(article_embedding)
-summary_lstm_layer = tf.keras.layers.LSTM(100)(summary_embedding)
-merged_layer = tf.keras.layers.concatenate([article_lstm_layer, summary_lstm_layer])
+    return articles, summaries
 
-# set to linear
-output_layer = tf.keras.layers.Dense(max_summary_length * num_words, activation='tanh')(merged_layer)
-output_layer = tf.keras.layers.Reshape((max_summary_length, num_words))(output_layer)
-model = tf.keras.models.Model(inputs=[article_input_layer, summary_input_layer], outputs=output_layer)
 
-# Compile the model
-model.compile(loss='cosine_similarity', optimizer='adam', metrics=['accuracy'])
-print('model built/compiled')
+def tokenize(articles, summaries):
+    # Tokenize the training articles and summaries.
+    print('Tokenizing training data...')
+    tokenizer.fit_on_texts([article for article in articles] + [summary for summary in summaries])
 
-# Train the model
-print('training model...')
-epochs = 10
-batch_size = 2
-for epoch in range(epochs):
-    for i in range(0, len(article_input), batch_size):
-        # Convert the summary input into one-hot encoded vectors
-        summary_one_hot = tf.one_hot(summary_input[i:i + batch_size], num_words)
+    # Convert the token sequences to their integer representation.
+    tokenizer.fit_on_texts(['<start> ' + article + ' <end>' for article in articles] +
+                           ['<start> ' + summary + ' <end>' for summary in summaries])
+    article_sequences = tokenizer.texts_to_sequences(['<start> ' + article + ' <end>' for article in articles])
+    summary_sequences = tokenizer.texts_to_sequences(['<start> ' + summary + ' <end>' for summary in summaries])
 
-        # Train the model on batches of article and summary inputs and their one-hot encoded vectors
-        loss, acc = model.train_on_batch(
-            [article_input[i:i + batch_size], summary_input[i:i + batch_size]],
-            summary_one_hot)
+    # Padding the articles and summaries to max length.
+    print('Padding/truncating training data...')
+    article_input = pad_sequences(article_sequences[:MAX_ARTICLE_LENGTH], maxlen=MAX_ARTICLE_LENGTH)
+    summary_input = pad_sequences(summary_sequences[:MAX_SUMMARY_LENGTH], maxlen=MAX_SUMMARY_LENGTH)
 
-    # Predict the summary for a single article. this should just print out a summary and not affect training.
-    index = 0  # index of the article you want to generate a summary for
-    article = article_input[index]
-    article = np.expand_dims(article, axis=0)  # add batch dimension
-    predicted_summary = model.predict([article, summary_input[index:index+1]])[0]
-    predicted_summary = np.argmax(predicted_summary, axis=1)  # convert one-hot encoding to integer indices
-    predicted_summary = ' '.join(tokenizer.index_word[i] for i in predicted_summary if i > 0)  # convert integer indices to words
-    print('Epoch {}: loss = {}, acc = {}'.format(epoch+1, loss, acc))
-    print('Epoch {}: predicted summary for article {}: {}'.format(epoch+1, index, predicted_summary))
+    return article_input, summary_input
 
-print('model trained')
-model.save('data/models/glove_new_model_05.h5')
-print('model saved')
 
-with open('data/models/glove_new_model_tokenizer_05.pkl', 'wb') as f:
-    pickle.dump(tokenizer, f)
-with open('data/models/glove_new_model_wordindex_05.pkl', 'wb') as f:
-    pickle.dump(word_index, f)
+def build_embedding_index():
+    # Load the pre-trained GloVe embeddings from file.
+    print('Loading GloVe embeddings...')
+    embedding_file = 'data/glove/glove.6B.300d.txt'
+    embedding_index_file = 'data/glove/glove.6B.300d.txt.pkl'
+
+    # Open the saved embedding index of all GloVe embeddings if it exists.
+    if os.path.isfile(embedding_index_file):
+        print('Loading the embedding index from file...')
+        with open(embedding_index_file, 'rb') as f:
+            embedding_index = pickle.load(f)
+
+    # Otherwise, create the embedding index.
+    else:
+        print('Creating embedding index...')
+        embedding_index = {}
+        with open(embedding_file, encoding='utf8') as f:
+            for line in f:
+                vals = line.split()  # Get each word embedding.
+                word = vals[0]       # Get each word.
+                embedding = np.asarray(vals[1:], dtype='float32')
+                embedding_index[word] = embedding  # Create mapping.
+        # Write to file.
+        with open(embedding_index_file, 'wb') as f:
+            pickle.dump(embedding_index, f)
+    return embedding_index
+
+
+def get_num_words(embedding_index_len):
+    word_index = tokenizer.word_index
+    num_words = min(len(word_index) + 1, embedding_index_len)
+    return num_words
+
+
+def build_embedding_matrix(embedding_index):
+    # Create an embedding matrix.
+    print('Creating embedding matrix...')
+    word_index = tokenizer.word_index
+    num_words = min(len(word_index) + 1, len(embedding_index))
+    embedding_matrix = np.zeros((num_words, EMBEDDING_DIM))
+
+    for word, i in word_index.items():
+        if i >= num_words:
+            continue
+        embedding_vector = embedding_index.get(word)
+        if embedding_vector is not None:
+            embedding_matrix[i] = embedding_vector
+
+    return embedding_matrix
+
+
+def build_neural_network(embedding_matrix, num_words):
+    # Filter tensorflow warnings.
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+    # Build the seq2seq neural network model.
+    print('Building and compiling neural network model...')
+
+    # Create neural network input layers.
+    article_input_layer = tf.keras.layers.Input(shape=(MAX_ARTICLE_LENGTH,))
+    summary_input_layer = tf.keras.layers.Input(shape=(MAX_SUMMARY_LENGTH,))
+
+    # Create neural network embedding layers.
+    embedding_layer = tf.keras.layers.Embedding(num_words, EMBEDDING_DIM, weights=[embedding_matrix], trainable=True)
+    article_embedding = embedding_layer(article_input_layer)
+    summary_embedding = embedding_layer(summary_input_layer)
+
+    # Create neural network LSTM layers.
+    article_lstm_layer = tf.keras.layers.LSTM(100)(article_embedding)
+    summary_lstm_layer = tf.keras.layers.LSTM(100)(summary_embedding)
+
+    # Create neural network merged and output layers.
+    merged_layer = tf.keras.layers.concatenate([article_lstm_layer, summary_lstm_layer])
+    output_layer = tf.keras.layers.Dense(MAX_SUMMARY_LENGTH * num_words, activation='tanh')(merged_layer)
+    output_layer = tf.keras.layers.Reshape((MAX_SUMMARY_LENGTH, num_words))(output_layer)
+
+    # Create and compile neural network model.
+    model = tf.keras.models.Model(inputs=[article_input_layer, summary_input_layer], outputs=output_layer)
+    model.compile(loss='cosine_similarity', optimizer='adam', metrics=['accuracy'])
+
+    return model
+
+
+def train_model(model, article_input, summary_input, num_words):
+    # Train the neural network on the training data.
+    print('Training model...')
+    for epoch in range(EPOCHS):
+        for i in range(0, len(article_input), BATCH_SIZE):
+            # Convert the summary input into tf.one_hot binary vectors representing the target output.
+            bin_vector = tf.one_hot(summary_input[i:i + BATCH_SIZE], num_words)
+
+            # Train the model on batches of article and summary inputs, and binary vectors.
+            loss, acc = model.train_on_batch([article_input[i:i+BATCH_SIZE], summary_input[i:i+BATCH_SIZE]], bin_vector)
+
+        # Predict the summary for a single article (article at TEST_INDEX).
+        article = article_input[TEST_INDEX]
+        article = np.expand_dims(article, axis=0)  # Adds batch dimension to the article array.
+        predicted_summary = model.predict([article, summary_input[TEST_INDEX:TEST_INDEX+1]])[0]  # Generate the summary.
+        predicted_summary = np.argmax(predicted_summary, axis=1)  # Convert binary vector to integer indexes.
+        predicted_summary = ' '.join(tokenizer.index_word[i] for i in predicted_summary if i > 0)  # int index => word
+
+        # Print epoch loss and accuracy metrics, as well as the progress of one of the summaries.
+        print('Epoch {}: loss = {}, accuracy = {}'.format(epoch+1, loss, acc))
+        print('Predicted Summary (Article {}):\n{}\n'.format(TEST_INDEX, predicted_summary))
+
+    # Save the model to disk.
+    print('Saving model...')
+    model.save('data/models/model_01.h5')
+
+    # Save the tokenizer to disk.
+    print('Saving tokenizer...')
+    with open('data/models/tokenizer_01.pkl', 'wb') as f:
+        pickle.dump(tokenizer, f)
+
+    # Training is complete.
+    print('Training complete.')
+
+
+def main():
+    # Load training articles and summaries from database.
+    articles, summaries = load_data()
+
+    # Tokenize and pad the articles and summaries.
+    article_input, summary_input = tokenize(articles, summaries)
+
+    # Build embedding index, matrix and get the number of words in training data.
+    embedding_index = build_embedding_index()
+    embedding_index_len = len(embedding_index)
+    num_words = get_num_words(embedding_index_len)
+    embedding_matrix = build_embedding_matrix(embedding_index)
+
+    # Build and train the neural network model on the training data.
+    model = build_neural_network(embedding_matrix, num_words)
+    train_model(model, article_input, summary_input, num_words)
+
+
+if __name__ == '__main__':
+    main()

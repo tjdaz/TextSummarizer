@@ -50,11 +50,13 @@ def print_scores(scores):
 
 def main():
     # Prints the ROUGE results for data the model has been trained on.
+    print('Trained Data ROUGE Scores:')
     trained_data = get_rouge_scores(1, 0)
     print_scores(trained_data)
 
     # Prints the ROUGE results for data the model has NOT been trained on.
-    untrained_data = get_rouge_scores(1, 500)
+    print('Untrained Data ROUGE Scores:')
+    untrained_data = get_rouge_scores(1, 1200)
     print_scores(untrained_data)
 
 

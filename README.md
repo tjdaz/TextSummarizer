@@ -16,7 +16,7 @@ https://drive.google.com/file/d/1rmDwRwekZJDIE9GHPFGcuVLM9XqvTU-9/view?usp=shari
 This contains a small portion of the CNN/Daily Mail dataset, the GloVe 300d text file, and a pickled embedding index.
 
 If you would like to avoid building the database and model, you can download the pre-built data folder:  
-https://placeholder
+https://drive.google.com/file/d/1UOnzFnoyJ4gO_FtcvvjUWLf37mxjjKo6/view?usp=sharing
 
 This is a small model trained on a small set of articles and summaries.
 

@@ -3,6 +3,6 @@
 .settings/
 .vscode/
 venv/
-data/database/*
-data/models/*
-data/raw/*
+data/
+data_old/
+.vector_cache/

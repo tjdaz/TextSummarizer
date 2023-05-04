@@ -4,4 +4,5 @@
 .vscode/
 venv/
 data/
+data_old/
 .vector_cache/

@@ -1,3 +1,12 @@
+"""
+Name: Timothy James Duffy, Kevin Falconett
+File: preprocessor.py
+Class: CSc 483; Spring 2023
+Project: TextSummarizer
+
+The preprocessor class provides methods to preprocess data and add an entire dataset to a database.
+"""
+
 import re
 from database import *
 

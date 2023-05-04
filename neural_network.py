@@ -1,16 +1,26 @@
+"""
+Name: Timothy James Duffy, Kevin Falconett
+File: neural_network.py
+Class: CSc 483; Spring 2023
+Project: TextSummarizer
+
+Builds and trains a seq2seq neural network model for article summarization.
+"""
+
 import pickle
 import numpy as np
 from database import *
 import tensorflow as tf
 from keras.utils import pad_sequences
+from summarizer import postprocess_summary
 from keras.preprocessing.text import Tokenizer
-from build import MAX_ARTICLE_LENGTH, MAX_SUMMARY_LENGTH, DATABASE_NAME
+from config import MAX_ARTICLE_LENGTH, MAX_SUMMARY_LENGTH, DATABASE_NAME, MODEL_PATH, TOKENIZER_PATH
 
 # Constants for the neural network model.
 EMBEDDING_DIM = 300
-BATCH_SIZE = 32
+BATCH_SIZE = 16
 TEST_INDEX = 0
-NUM_DOCS = 32
+NUM_DOCS = 64
 EPOCHS = 10
 
 # Instantiate the tokenizer.
@@ -18,6 +28,7 @@ tokenizer = Tokenizer(filters='', oov_token='<OOV>', lower=True)
 
 
 def load_data():
+    """Loads articles and summaries from the database."""
     # Load CNN articles from database.
     print('Loading training data...')
     database = Database(DATABASE_NAME)
@@ -27,25 +38,27 @@ def load_data():
 
 
 def tokenize(articles, summaries):
+    """Tokenizes ands pads articles and summaries."""
     # Tokenize the training articles and summaries.
     print('Tokenizing training data...')
     tokenizer.fit_on_texts([article for article in articles] + [summary for summary in summaries])
-
     # Convert the token sequences to their integer representation.
-    tokenizer.fit_on_texts(['<start> ' + article + ' <end>' for article in articles] +
+    tokenizer.fit_on_texts(['<start> ' + article[:MAX_ARTICLE_LENGTH] + ' <end>' for article in articles] +
                            ['<start> ' + summary + ' <end>' for summary in summaries])
     article_sequences = tokenizer.texts_to_sequences(['<start> ' + article + ' <end>' for article in articles])
     summary_sequences = tokenizer.texts_to_sequences(['<start> ' + summary + ' <end>' for summary in summaries])
 
     # Padding the articles and summaries to max length.
     print('Padding/truncating training data...')
-    article_input = pad_sequences(article_sequences[:MAX_ARTICLE_LENGTH], maxlen=MAX_ARTICLE_LENGTH)
-    summary_input = pad_sequences(summary_sequences[:MAX_SUMMARY_LENGTH], maxlen=MAX_SUMMARY_LENGTH)
+
+    article_input = pad_sequences(article_sequences, maxlen=MAX_ARTICLE_LENGTH)
+    summary_input = pad_sequences(summary_sequences, maxlen=MAX_SUMMARY_LENGTH)
 
     return article_input, summary_input
 
 
 def build_embedding_index():
+    """Builds an embeddings index from the GloVe 300dim dataset."""
     # Load the pre-trained GloVe embeddings from file.
     print('Loading GloVe embeddings...')
     embedding_file = 'data/glove/glove.6B.300d.txt'
@@ -74,13 +87,14 @@ def build_embedding_index():
 
 
 def get_num_words(embedding_index_len):
+    """Returns the number of words in the word/embedding index (whichever is smaller)."""
     word_index = tokenizer.word_index
     num_words = min(len(word_index) + 1, embedding_index_len)
     return num_words
 
 
 def build_embedding_matrix(embedding_index):
-    # Create an embedding matrix.
+    """Builds a matrix of embeddings from the words in the embedding index."""
     print('Creating embedding matrix...')
     word_index = tokenizer.word_index
     num_words = min(len(word_index) + 1, len(embedding_index))
@@ -97,6 +111,7 @@ def build_embedding_matrix(embedding_index):
 
 
 def build_neural_network(embedding_matrix, num_words):
+    """Builds the seq2seq neural network."""
     # Filter tensorflow warnings.
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -129,7 +144,7 @@ def build_neural_network(embedding_matrix, num_words):
 
 
 def train_model(model, article_input, summary_input, num_words):
-    # Train the neural network on the training data.
+    """Trains the model on the training data."""
     print('Training model...')
     for epoch in range(EPOCHS):
         for i in range(0, len(article_input), BATCH_SIZE):
@@ -146,17 +161,20 @@ def train_model(model, article_input, summary_input, num_words):
         predicted_summary = np.argmax(predicted_summary, axis=1)  # Convert binary vector to integer indexes.
         predicted_summary = ' '.join(tokenizer.index_word[i] for i in predicted_summary if i > 0)  # int index => word
 
+        # Strip out special tokens and whitespace.
+        predicted_summary = postprocess_summary(predicted_summary)
+
         # Print epoch loss and accuracy metrics, as well as the progress of one of the summaries.
         print('Epoch {}: loss = {}, accuracy = {}'.format(epoch+1, loss, acc))
         print('Predicted Summary (Article {}):\n{}\n'.format(TEST_INDEX, predicted_summary))
 
     # Save the model to disk.
     print('Saving model...')
-    model.save('data/models/model_01.h5')
+    model.save(MODEL_PATH)
 
     # Save the tokenizer to disk.
     print('Saving tokenizer...')
-    with open('data/models/tokenizer_01.pkl', 'wb') as f:
+    with open(TOKENIZER_PATH, 'wb') as f:
         pickle.dump(tokenizer, f)
 
     # Training is complete.

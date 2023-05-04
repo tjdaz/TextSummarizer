@@ -1,3 +1,12 @@
+"""
+Name: Timothy James Duffy, Kevin Falconett
+File: database.py
+Class: CSc 483; Spring 2023
+Project: TextSummarizer
+
+The database class provides methods to create a database, as well as insert and retrieve data.
+"""
+
 import os
 import random
 import sqlite3

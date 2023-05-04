@@ -18,9 +18,9 @@ from config import MAX_ARTICLE_LENGTH, MAX_SUMMARY_LENGTH, DATABASE_NAME, MODEL_
 
 # Constants for the neural network model.
 EMBEDDING_DIM = 300
-BATCH_SIZE = 32
+BATCH_SIZE = 16
 TEST_INDEX = 0
-NUM_DOCS = 350
+NUM_DOCS = 64
 EPOCHS = 10
 
 # Instantiate the tokenizer.

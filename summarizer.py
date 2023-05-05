@@ -7,6 +7,9 @@ Project: TextSummarizer
 Generates a summary using the model in the config.
 """
 
+# Filter tensorflow warnings.
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import sys
 import pickle
 import numpy as np

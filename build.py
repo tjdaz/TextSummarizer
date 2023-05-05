@@ -7,6 +7,10 @@ Project: TextSummarizer
 Builds the database from raw files, builds and trains the neural network, and runs metrics on the model.
 """
 
+# Filter tensorflow warnings.
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
 import metrics
 import neural_network
 from preprocessor import *
@@ -14,9 +18,6 @@ from config import MIN_DOCUMENTS, RAW_DATA_PATH, DATABASE_NAME
 
 
 def main():
-    # Filter tensorflow warnings.
-    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-
     # Do not run this if you have a model already created
     database = Database(DATABASE_NAME)
     preprocessor = Preprocessor(DATABASE_NAME)

@@ -10,7 +10,6 @@ Builds and trains a seq2seq neural network model for article summarization.
 # Filter tensorflow warnings.
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-
 import pickle
 import numpy as np
 from database import *

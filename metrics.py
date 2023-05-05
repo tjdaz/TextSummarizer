@@ -10,7 +10,6 @@ Provides methods to calculate the ROUGE metric and print the results.
 # Filter tensorflow warnings.
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-
 from database import *
 from rouge import Rouge
 from config import DATABASE_NAME

@@ -7,6 +7,9 @@ Project: TextSummarizer
 Builds and trains a seq2seq neural network model for article summarization.
 """
 
+# Filter tensorflow warnings.
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import pickle
 import numpy as np
 from database import *
@@ -112,9 +115,6 @@ def build_embedding_matrix(embedding_index):
 
 def build_neural_network(embedding_matrix, num_words):
     """Builds the seq2seq neural network."""
-    # Filter tensorflow warnings.
-    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-
     # Build the seq2seq neural network model.
     print('Building and compiling neural network model...')
 

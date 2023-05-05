@@ -14,6 +14,9 @@ from config import MIN_DOCUMENTS, RAW_DATA_PATH, DATABASE_NAME
 
 
 def main():
+    # Filter tensorflow warnings.
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
     # Do not run this if you have a model already created
     database = Database(DATABASE_NAME)
     preprocessor = Preprocessor(DATABASE_NAME)
